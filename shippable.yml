@@ -1,0 +1,42 @@
+# vim: et sr sw=2 ts=2 smartindent:
+language: none
+
+branches:
+  only:
+    - master
+
+env:
+  global:
+    - IMG="deploy_fastly"
+    - JQ="https://github.com/stedolan/jq/releases/download/jq-1.5/jq-linux64"
+
+build:
+
+  ci:
+    - curl -O -L $JQ
+      && chmod +x jq-linux64
+      && sudo mv jq-linux64 /usr/bin/jq
+    - docker pull opsgang/$IMG:stable || true # speed up build layers
+    - bash ./build.sh # avoid aufs file-locking with new shell
+
+  on_success:
+    - if [[ "$BRANCH" == "master" ]] && [[ "$IS_PULL_REQUEST" != "true" ]]; then
+        a=$(docker inspect opsgang/$IMG:candidate | jq -r '.[].Config.Labels') ;
+        v=$(echo $a | jq -r '.version') ;
+        gt=$(echo $a | jq -r '."opsgang.build_git_tag"') ;
+        pv=terraform-$(echo $a | jq -r '."opsgang.terraform_version"') ;
+        tags="$v $gt $pv stable" ; echo $a | jq . ; echo "docker tags:($tags)" ;
+        for t in $tags; do
+          docker tag opsgang/$IMG:candidate opsgang/$IMG:$t;
+          docker push opsgang/$IMG:$t;
+          echo "... pushed $IMG:$t";
+        done ;
+      fi
+
+integrations:
+  hub:
+    - integrationName: opsgang_dockerhub
+      type: docker
+      branches:
+        only:
+          - master
