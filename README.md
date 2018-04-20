@@ -19,7 +19,7 @@ Each sub dir contains vcl and / or terraform examples or snippets
 that you can use to configure Fastly.
 
 >
-> The are directly useful if your Fastly account
+> These are directly useful if your Fastly account
 > has been permitted to upload **custom VCL**.
 >
 
