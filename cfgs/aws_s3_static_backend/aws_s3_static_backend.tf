@@ -5,17 +5,9 @@
 # set $FASTLY_API_KEY in env instead of an explicit
 # provider block for fastly.
 #
-
-data "template_file" "aws_s3_static_backend" {
-
-  template = "${file("aws_s3_static_backend.vcl.tpl")}" # ... CHANGE PATH IF YOU'RE USING A SUBDIR
-
-  vars {
-    audit_comment     = "${var.audit_comment}"
-    default_max_age   = "${var.default_max_age}"
-    default_ttl       = "${var.default_ttl}"
-  }
-}
+# Also, you'll need a main.tf with a terraform block in which
+# you can define min. terraform version, and backend settings.
+#
 
 variable "audit_comment" {
   description = "used this to put governance info in your vcl and fastly service e.g. git info"
@@ -23,13 +15,13 @@ variable "audit_comment" {
 }
 
 variable "default_max_age" {
-  description = "used in aws_s3_static_backend.vcl.tpl for Access-Control-Max-Age header"
   default     = "1728000"
+  description = "used in aws_s3_static_backend.vcl.tpl for Access-Control-Max-Age header"
 }
 
 variable "default_ttl" {
-    description = "used in aws_s3_static_backend.vcl.tpl for default ttl value"
-    default     = "3600s"
+  default     = "3600s"
+  description = "used in resource and aws_s3_static_backend.vcl.tpl for default ttl value"
 }
 
 variable "fastly_dns_name" {
@@ -102,7 +94,7 @@ resource "fastly_service_v1" "a" {
     force_ssl     = true
   }
 
-  default_ttl = 3600
+  default_ttl = "${var.default_ttl}"
 
   gzip {
     name          = "gzip"

@@ -1,5 +1,7 @@
 # vim: et sr sw=2 ts=2 smartindent syntax=vcl:
 #
+# ${audit_comment}
+#
 # FROM https://github.com/opsgang/fastly/ - cfgs/aws_s3_static_backend
 #
 # VCL that expects to cache all requests by default from an S3 backend
@@ -44,7 +46,7 @@ sub vcl_fetch {
 #FASTLY fetch
 
   if (
-    req.restarts < 1 &&
+    req.restarts < 2 &&
     (beresp.status >= 500 || beresp.status <= 600) &&
     (req.request == "GET" || req.request == "HEAD")
   ) {
