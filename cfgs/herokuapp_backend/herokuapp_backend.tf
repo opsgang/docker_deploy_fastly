@@ -1,37 +1,19 @@
 # vim: et sr sw=2 ts=2 smartindent:
 #
-# FROM https://github.com/opsgang/fastly/ - cfgs/aws_s3_static_backend
-#
 # set $FASTLY_API_KEY in env instead of an explicit
 # provider block for fastly.
 #
-# You'll need a main.tf with a terraform block in which
-# you can define min. terraform version, and backend settings.
-#
-# Also the healthcheck expects an index.html in your s3 bucket
-#
-
 variable "audit_comment" {
   description = "used this to put governance info in your vcl and fastly service e.g. git info"
   default     = "... should put in git_info or something useful for governance here."
-}
-
-variable "default_max_age" {
-  default     = "1728000"
-  description = "used in aws_s3_static_backend.vcl.tpl for Access-Control-Max-Age header"
-}
-
-variable "default_ttl" {
-  default     = "3600s"
-  description = "used in resource and aws_s3_static_backend.vcl.tpl for default ttl value"
 }
 
 variable "dns_to_fastly" {
   description = "dns name used by end-users to access site via fastly"
 }
 
-variable "static_s3_fqdn" {
-  description = "dns name to s3 bucket"
+variable "dns_to_origin" {
+  description = "dns name for heroku f/e"
 }
 
 variable "service_name" {
@@ -48,6 +30,16 @@ variable "connect_timeout" {
   description = "backend setting"
 }
 
+variable "heroku_ssl_name" {
+  default     = "*.herokuapp.com"
+  description = "ssl cert name served by your heroku app"
+}
+
+variable "heroku_sni_name" {
+  default     = "*.herokuapp.com"
+  description = "ssl sni name served by your heroku app - for a wildcard, use *.<domain>"
+}
+
 variable "first_byte_timeout" {
   default     = 10000
   description = "backend setting"
@@ -56,6 +48,26 @@ variable "first_byte_timeout" {
 variable "max_conn" {
   default     = 400
   description = "backend setting"
+}
+
+variable "ttl_404_and_3xx" {
+  default     = "10m"
+  description = "how long to cache 404s and 3xx redirects"
+}
+
+variable "short_ttl_secs" {
+  default     = "300"
+  description = ""
+}
+
+variable "long_ttl_secs" {
+  default     = "3600"
+  description = ""
+}
+
+variable "default_ttl_secs" {
+  default     = "3600"
+  description = ""
 }
 
 provider "fastly" {
@@ -75,26 +87,26 @@ resource "fastly_service_v1" "a" {
   }
 
   backend {
-    name                  = "${var.static_s3_fqdn}"
-    address               = "${var.static_s3_fqdn}"
-
-    auto_loadbalance      = true
+    name                  = "${var.dns_to_origin}"
+    address               = "${var.dns_to_origin}"
+    auto_loadbalance      = false
     between_bytes_timeout = "${var.between_bytes_timeout}"
     connect_timeout       = "${var.connect_timeout}"
     first_byte_timeout    = "${var.first_byte_timeout}"
     healthcheck           = "health_check"
     max_conn              = "${var.max_conn}"
-    port                  = 80
-    ssl_check_cert        = false
+    port                  = 443
+    ssl_check_cert        = true
+    ssl_cert_hostname     = "${var.heroku_ssl_name}"
+    ssl_sni_hostname      = "${var.heroku_sni_name}"
+    use_ssl               = true
   }
 
   request_setting {
     name          = "${var.service_name}"
-    default_host  = "${var.static_s3_fqdn}"
+    default_host  = "${var.dns_to_origin}"
     force_ssl     = true
   }
-
-  default_ttl = "${var.default_ttl}"
 
   gzip {
     name          = "gzip"
@@ -144,8 +156,8 @@ resource "fastly_service_v1" "a" {
 
   healthcheck {
     name              = "health_check"
-    host              = "${var.static_s3_fqdn}"
-    path              = "/index.html"
+    host              = "${var.dns_to_origin}"
+    path              = "/"
     check_interval    = 20000
     expected_response = 200
     initial           = 2
@@ -156,8 +168,8 @@ resource "fastly_service_v1" "a" {
   }
 
   vcl {
-    name    = "aws_s3_static_backend"
-    content = "${data.template_file.aws_s3_static_backend.rendered}"
+    name    = "herokuapp_backend"
+    content = "${data.template_file.herokuapp_backend.rendered}"
     main    = true
   }
 
@@ -170,14 +182,18 @@ resource "fastly_service_v1" "a" {
   #}
 }
 
-data "template_file" "aws_s3_static_backend" {
+data "template_file" "herokuapp_backend" {
 
-  template = "${file("aws_s3_static_backend.vcl.tpl")}" # ... CHANGE PATH IF YOU'RE USING A SUBDIR
+  template = "${file("herokuapp_backend.vcl.tpl")}" # ... CHANGE PATH IF YOU'RE USING A SUBDIR
 
   vars {
-    audit_comment     = "${var.audit_comment}"
-    default_max_age   = "${var.default_max_age}"
-    default_ttl       = "${var.default_ttl}"
+    audit_comment    = "${var.audit_comment}"
+    default_ttl_secs = "${default_ttl_secs}"
+    dns_to_fastly    = "${var.dns_to_fastly}"
+    dns_to_origin    = "${dns_to_origin}"
+    long_ttl_secs    = "${long_ttl_secs}"
+    short_ttl_secs   = "${short_ttl_secs}"
+    ttl_404_and_3xx  = "${ttl_404_and_3xx}"
   }
 }
 

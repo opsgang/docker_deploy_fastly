@@ -2,7 +2,9 @@
 #
 # FROM https://github.com/opsgang/fastly/ - cfgs/http_security_headers
 #
-# CONTAINS TERRAFORM template vars
+# VCL snippet to be included in another vcl.
+#
+# Will set some http security response headers to pass to client if not sent by backend.
 # 
 # Include in vcl_deliver after the #FASTLY deliver macro
 # e.g.

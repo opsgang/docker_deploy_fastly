@@ -5,6 +5,7 @@
 # FROM https://github.com/opsgang/fastly/ - cfgs/aws_s3_static_backend
 #
 # VCL that expects to cache all requests by default from an S3 backend
+#
 # * removes amazon specific headers in vcl_deliver.
 #
 # * adds robots.txt that stops indexing and caching but allows crawling
@@ -100,7 +101,7 @@ sub vcl_deliver {
     set resp.http.Cache-Control = "public, max-age=3600";
   }
 
-  # ... though we allow crawling of images (see robots.txt), we also 
+  # ... though we allow crawlers the discovery of images (see robots.txt), we also 
   # ask that they not be included in search results here.
   set resp.http.X-Robots-Tag = "noindex, nofollow";
 

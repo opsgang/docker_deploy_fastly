@@ -8,7 +8,6 @@ Fastly service.
 > if you're also including opsgang/http\_security\_headers.
 >
 
-
 ## USAGE
 
 >
@@ -16,6 +15,10 @@ Fastly service.
 >
 > Speak to support@fastly.com if not.
 >
+
+This assumes you have created an s3 bucket configured as a webserver.
+
+**It must contain an index.html file available to use as a health check.**
 
 ### 1. Grab files in this subdir
 
