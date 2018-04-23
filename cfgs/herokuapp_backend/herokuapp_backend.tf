@@ -188,12 +188,12 @@ data "template_file" "herokuapp_backend" {
 
   vars {
     audit_comment    = "${var.audit_comment}"
-    default_ttl_secs = "${default_ttl_secs}"
+    default_ttl_secs = "${var.default_ttl_secs}"
     dns_to_fastly    = "${var.dns_to_fastly}"
-    dns_to_origin    = "${dns_to_origin}"
-    long_ttl_secs    = "${long_ttl_secs}"
-    short_ttl_secs   = "${short_ttl_secs}"
-    ttl_404_and_3xx  = "${ttl_404_and_3xx}"
+    dns_to_origin    = "${var.dns_to_origin}"
+    long_ttl_secs    = "${var.long_ttl_secs}"
+    short_ttl_secs   = "${var.short_ttl_secs}"
+    ttl_404_and_3xx  = "${var.ttl_404_and_3xx}"
   }
 }
 
