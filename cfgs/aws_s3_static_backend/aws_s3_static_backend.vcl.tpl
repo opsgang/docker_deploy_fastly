@@ -103,6 +103,7 @@ sub vcl_deliver {
 
   # ... though we allow crawlers the discovery of images (see robots.txt), we also 
   # ask that they not be included in search results here.
+  # Feel free to comment this line out, if you want your static content indexed.
   set resp.http.X-Robots-Tag = "noindex, nofollow";
 
   # Access Control: allow headers

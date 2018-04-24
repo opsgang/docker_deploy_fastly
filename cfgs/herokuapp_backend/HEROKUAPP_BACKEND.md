@@ -3,6 +3,8 @@
 > Provides full vcl and main terraform to stick
 > a Fastly service in front of a heroku app.
 
+See .tf file for variables to set.
+
 ## VCL
 
 * includes http\_security\_headers
