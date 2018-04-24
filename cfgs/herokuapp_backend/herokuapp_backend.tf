@@ -1,10 +1,12 @@
 # vim: et sr sw=2 ts=2 smartindent:
 #
+# FROM https://github.com/opsgang/fastly/ - cfgs/herokuapp_backend
+#
 # set $FASTLY_API_KEY in env instead of an explicit
 # provider block for fastly.
 #
 variable "audit_comment" {
-  description = "used this to put governance info in your vcl and fastly service e.g. git info"
+  description = "use this to put governance info in your vcl and fastly service e.g. git info"
   default     = "... should put in git_info or something useful for governance here."
 }
 
@@ -43,6 +45,10 @@ variable "heroku_sni_name" {
 variable "first_byte_timeout" {
   default     = 10000
   description = "backend setting"
+}
+
+variable "health_check_path" {
+  description = "url path in heroku app that will reliably return 200 on a HEAD request"
 }
 
 variable "max_conn" {
@@ -157,7 +163,7 @@ resource "fastly_service_v1" "a" {
   healthcheck {
     name              = "health_check"
     host              = "${var.dns_to_origin}"
-    path              = "/"
+    path              = "${var.health_check_path}"
     check_interval    = 20000
     expected_response = 200
     initial           = 2

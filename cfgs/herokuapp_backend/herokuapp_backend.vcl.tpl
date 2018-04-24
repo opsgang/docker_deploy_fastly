@@ -22,14 +22,17 @@ sub vcl_recv {
   # ... force the expected DNS name that points to fastly so that requests
   # to http://my.fastly.service will be automatically redirected to
   # https://my.fastly.service during the code provided in the expanded FASTLY recv macro.
+
+  # if you are using a custom domain name in heroku, you don't need this line.
   set req.http.Host = "${dns_to_fastly}";
 
 #FASTLY recv
 
-  # ... now we need to set the host header to what the origin will expect.
-  # (Unless you use a custom domain name in Heroku, it uses the host header
-  # to determine which of the hundreds of apps it hosts should take this request.
-  set req.http.Host = "${dns_to_origin}"; # probably ends in herokuapp.com
+  # ... now we set the host header to help heroku identify your app.
+  # Heroku uses the host header to direct the request to the correct app out of
+  # the thousands it hosts. The exception to this is if you configure Heroku with
+  # a custom domain name, in which case it will expect that name to identify your app.
+  set req.http.Host = "${dns_to_origin}"; # ends in herokuapp.com, unless custom domain name.
 
   if (req.request != "HEAD" && req.request != "GET" && req.request != "FASTLYPURGE") {
     return(pass);
@@ -66,11 +69,17 @@ sub vcl_recv {
 
 }
 
+# vcl_fetch()
+# To expose custom debug headers, set beresp.http.X-my-debug and you'll
+# see it in the response. Just be aware that it will be cached, so
+# best make it conditional based on the presence of req.http.X-custom-debug.
+#
 sub vcl_fetch {
   if (req.restarts > 0) { set beresp.http.Fastly-Restarts = req.restarts; }
 
 #FASTLY fetch
 
+  # ... if 5xx, try again in case of transient error.
   if (
     req.restarts < 3 &&
     (beresp.status >= 500 && beresp.status <= 600) &&
@@ -79,14 +88,15 @@ sub vcl_fetch {
     restart;
   }
 
-  if (beresp.status == 500 || beresp.status == 503) {
+  # ... eventually just serve upstream gateway time outs, and internal server errs
+  if (beresp.status >= 500 && beresp.status <= 503) {
     set req.http.Fastly-Cachetype = "ERROR";
     set beresp.ttl = 1s;
     set beresp.grace = 5s;
     return(deliver);
   }
 
-  # ... cache 404 / 301
+  # ... cache 404 / 301 to protect origin.
   if (
     beresp.status == 404 ||
     beresp.status == 301 ||
@@ -100,7 +110,11 @@ sub vcl_fetch {
     beresp.http.Expires ||
     beresp.http.Surrogate-Control ~ "max-age" ||
     beresp.http.Cache-Control ~ "(s-maxage|max-age)"
-  ) { # ... keep the ttl here
+  ) {
+    # ... honour any of the above headers
+    if (req.http.X-custom-debug) {
+      set beresp.http.X-dbg-msg = "CACHE[header from app]" ;
+    }
   }
   elsif (req.http.X-force-cache && req.http.X-force-cache != "") {
     declare local var.secs_str STRING; 
@@ -114,6 +128,10 @@ sub vcl_fetch {
       set var.secs_t = ${long_ttl_secs}s;
     }
     else {
+      # ... will only hit this when the user passes X-force-cache on
+      # a request for an asset not defined in the "short" or "long"
+      # declarations in vcl_recv.
+      set req.http.X-force-cache = "other" ;
       set var.secs_str = "${default_ttl_secs}";
       set var.secs_t = ${default_ttl_secs}s;
     }
@@ -123,12 +141,18 @@ sub vcl_fetch {
     set beresp.ttl = var.secs_t;
     set beresp.grace = var.secs_t;
     if (req.http.X-custom-debug) {
-      set req.http.X-custom-debug = " forced-cache:"+ var.secs_str;
+      declare local var.msg STRING;
+      set var.msg = "CACHE[fastly(" + req.http.X-force-cache+"):"+ var.secs_str + " secs]";
+      set beresp.http.X-dbg-msg = var.msg;
     }
   }
   else {
-    # apply the default ttl
+    # ... apply the default ttl
+    # (unless X-force-cache header set by user, in which case above condition applies)
     set beresp.ttl = ${default_ttl_secs}s;
+    if (req.http.X-custom-debug) {
+      set beresp.http.X-dbg-msg = "CACHE[default ttl:${default_ttl_secs} secs]";
+    }
   }
 
   # ... for non-static assets, pass-thru
@@ -169,6 +193,11 @@ sub vcl_deliver {
   # if you are using opsgang/http_security_headers uncomment the line below
   #
   #include "http_security_headers";
+
+  if (req.http.X-custom-debug) {
+    set resp.http.X-custom-debug = "DEBUG:" + resp.http.X-dbg-msg ;
+    unset resp.http.X-dbg-msg ;
+  }
 
   return(deliver);
 
